@@ -64,27 +64,42 @@ public:
     // Implement these functions:
     Queue()
     {
-
+        frontNode = nullptr;
+        rearNode = nullptr;
+        count = 0;
     }
     ~Queue()
     {
-
+        while (!isEmpty()) dequeue();
     }
     void enqueue(const T& val)
     {
-
+        Node* temp = new Node(value);
+        if (frontNode == nullptr) {
+            rearNode = temp;
+            frontNode = temp;
+            count++;
+            return;
+        }
+        else rearNode->next = temp;
+        rearNode = temp;
+        count++;
     }
     T dequeue()
     {
-
+        if (isEmpty()) throw underflow_error("Queue is Empty");
+        Node* temp = frontNode;
+        frontNode = frontNode->next;
+        count--;
+        return temp->data;
     }
     bool isEmpty()
     {
-
+        return count == 0;
     }
     int size()
     {
-
+        return count;
     }
 };
 
