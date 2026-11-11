@@ -150,10 +150,33 @@ bool receiveResponse(int sock, const char* outTdbgPath, string& outError)
 
 bool openTdbg(const char* path, TdbgReader& r)
 {
+    FILE *f = fopen(path, "rb");
+    if (!f) return false;
+
+    if (fread(r.header.magic, 1, 4, f) != 4 || strncmp(r.header.magic, "TTDB", 4) != 0 ||
+        fread(&r.header.version, sizeof(int32_t), 1, f) != 1 ||
+        fread(&r.header.stepCount, sizeof(int32_t), 1, f) != 1 ||
+        fread(&r.header.indexOffset, sizeof(int64_t), 1, f) != 1) {
+        fclose(f);
+        return false;
+    }
+
+    r.index.resize(r.header.stepCount);
+    if (fseek(f, r.header.indexOffset, SEEK_SET) != 0 ||
+        (r.header.stepCount > 0 && fread(r.index.data(), sizeof(int64_t), r.header.stepCount, f) != (size_t)r.header.stepCount)) {
+        fclose(f);
+        return false;
+    }
+
+    r.file_index = fileno(f);
+    fclose(f);
+    return r.file_index >= 0;
 }
 void closeTdbg(TdbgReader& r)
 {
     // Free r.index and close the file.
+    if (r.file_index >= 0) r.file_index = -1;
+    r.index.clear();
 }
 Snapshot* readSnapshotAt(TdbgReader& r, int32_t step)
 {
