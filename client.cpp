@@ -202,6 +202,7 @@ void closeSession(DebugSession& s)
     }
 }
 
+
 // =============================================================================================
 // PART D: THE COMMANDS
 // =============================================================================================
@@ -215,6 +216,10 @@ bool showCurrent(DebugSession& s)
 }
 bool moveBy(DebugSession& s, int32_t delta)
 {
+    int32_t move = s.currentStep + delta;
+    if (move < 0 || move >= s.reader.header.stepCount) return false;
+    s.currentStep = move;
+    return showCurrent(s);
 }
 bool cmdStart(DebugSession& s, const string& sourcePath)
 {
@@ -226,10 +231,11 @@ bool cmdStart(DebugSession& s, const string& sourcePath)
     //    set s.currentStep = 0 and s.active = true.
     // 5. Show step 1 with showCurrent(s).
 }
-bool cmdNext(DebugSession& s) {}
-bool cmdPrv(DebugSession& s) {}
-bool cmdJmpNext(DebugSession& s, int32_t n) {}
-bool cmdJmpPrv(DebugSession& s, int32_t n) {}
+
+bool cmdNext(DebugSession& s) { return moveBy(s, 1); }
+bool cmdPrv(DebugSession& s) { return moveBy(s, -1); }
+bool cmdJmpNext(DebugSession& s, int32_t n) { return moveBy(s, n); }
+bool cmdJmpPrv(DebugSession& s, int32_t n) { return moveBy(s, -n); }
 
 // =============================================================================================
 // PART E: PRINTING
@@ -237,12 +243,19 @@ bool cmdJmpPrv(DebugSession& s, int32_t n) {}
 
 void printSnapshot(int32_t step, int32_t totalSteps, const Snapshot& s)
 {
+    cout << step << " : " << totalSteps << " (Stack Depth: " << s.stackDepth << ")\n";
 }
 void printHelp()
 {
     // Print the commands
+    cout << "Commands:\n"
+        << "  start     : Upload source code and start debugging session\n"
+        << "  next      : Move to next step\n"
+        << "  prv       : Move to previous step\n"
+        << "  jmp next  : Jump forward by n steps\n"
+        << "  jmp prv   : Jump backward by n steps\n"
+        << "  exit      : Exit\n";
 }
-
 // =============================================================================================
 // PART F: THE INFINITE LOOP
 // =============================================================================================
