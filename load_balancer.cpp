@@ -122,12 +122,22 @@ bool sendAll(int sock, const char* buf, size_t n)
 {
     // Reply format: [status: 1 byte][sending_material][checksum: 4 bytes].
     // send() may send fewer bytes than asked for, so keep calling it until all n bytes are sent.
+    size_t totalSent = 0;
+    while (totalSent < n){
+        size_t bytes = send(sock, buf + totalSent, n - totalSent, 0);
+        if (bytes <= 0) return false;
+        totalSent += bytes;
+    }
+    return true;
 
 }
 bool sendError(int sock, const string& message)
 {
     // Reply format: [status: 1 byte][payload until close][checksum: 4 bytes].
     // For an error: send one byte with value 1, then the message text. 
+    char byte = 1;
+    if (!sendAll(sock, &byte, 1)) return false;
+    return sendAll(sock, message.c_str(), message.length());
 }
 int createListenSocket(int port)
 {
@@ -135,11 +145,48 @@ int createListenSocket(int port)
     // set SO_REUSEADDR so we can restart the load balancer right away.
     // bind() to the port on any address, then listen(LISTEN_BACKLOG).
     // If bind or listen fails, print the error and exit, because without this socket we cannot work.
+    int listenSock = socket(AF_INET, SOCK_STREAM, 0);
+    if (listenSock < 0){
+        cout << "ERROR : Listing Socket not Created\n" << endl;
+        exit(1);
+    }
+
+    sockaddr_in addr{};
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = INADDR_ANY;
+    addr.sin_port = htons(port);
+
+    int sockopt = 1;
+    setsockopt(listenSock, SOL_SOCKET, SO_REUSEADDR, (char*)&sockopt, sizeof(sockopt));
+
+
+    if (bind(listenSock, (sockaddr*)&addr, sizeof(addr)) < 0){
+        cout << "ERROR : Not Binding " << port << endl;
+        closesocket(listenSock);
+        exit(1);
+    }
+
+    if (listen(listenSock, LISTEN_BACKLOG) < 0){
+        cout << "ERROR : Not Listening" << endl;
+        closesocket(listenSock);
+        exit(1);
+    }
+    return listenSock;
 }
 int connectToServer(const char* host, int port)
 {
     // Create a TCP socket (SOCK_CLOEXEC) and connect it to host:port.
     // Return the socket, or -1 if the connection fails 
+    int sock = socket(AF_INET, SOCK_STREAM, 0);
+    sockaddr_in addr{};
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(port);
+
+    if (connect(sock, (struct sockaddr*)&addr, sizeof(addr)) < 0){
+        closesocket(sock);
+        return -1;
+    }
+    return sock;
 }
 
 // =============================================================================================
