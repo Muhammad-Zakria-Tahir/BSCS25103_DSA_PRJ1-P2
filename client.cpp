@@ -88,17 +88,43 @@ bool recvAll(int sock, char* buf, size_t n)
 {
     // recv() can return fewer bytes than asked for, so keep calling it until exactly n bytes are read.
     // Return false if the connection closes or fails before n bytes arrive.
+    size_t totalReceive = 0;
+    while (totalReceive < n)
+    {
+        int bytes = recv(sock, buf + totalReceive, n - totalReceive, 0);
+        if (bytes <= 0) return false;
+        totalReceive += bytes;
+    }
+    return true;
 }
 bool sendAll(int sock, const char* buf, size_t n)
 {
     // send() can send fewer bytes than asked for, so keep calling it until all n bytes are sent.
     // Use the flag MSG_NOSIGNAL. Return false if the connection fails.
+    size_t totalSent = 0;
+    while (totalSent < n) {
+        size_t bytes = send(sock, buf + totalSent, n - totalSent, 0);
+        if (bytes <= 0) return false;
+        totalSent += bytes;
+    }
+    return true;
 }
 
 int connectToHost(const char* host, int port)
 {
     // Create a TCP socket and connect it to host:port.
     // Return the socket, or -1 if the connection fails.
+    int sock = socket(AF_INET, SOCK_STREAM, 0);
+    sockaddr_in addr{};
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(port);
+
+    if (connect(sock, (struct sockaddr*)&addr, sizeof(addr)) < 0){
+        closesocket(sock);
+        exit(-1);
+    }
+
+    return sock;
 }
 bool uploadSource(int sock, const char* sourcePath)
 {
