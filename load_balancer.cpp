@@ -200,6 +200,8 @@ bool startServer(int port)
     //   Example: "./server 5001 &"
     // Call system() with it.
     // Return true if system() returned 0, otherwise false.
+    string command = string(SERVER_PATH) + " " + to_string(port) + " &";
+    return system(command.c_str()) == 0;
 }
 int connectToServerWithWakeup()
 {
@@ -207,6 +209,17 @@ int connectToServerWithWakeup()
     // 2. Otherwise call startServer(). If it fails, return -1.
     // 3. Try connectToServer() up to STARTUP_MAX_ATTEMPTS times 
     // 4. Return the first working socket, or -1 if the server never came up.
+    int sock = connectToServer(serverHost.c_str(), serverPort);
+    if (sock != -1) return sock;
+
+    if (!startServer(serverPort)) return -1;
+
+    for (int i = 0; i < STARTUP_MAX_ATTEMPTS; ++i){
+        Sleep(STARTUP_POLL_INTERVAL_MS);
+        sock = connectToServer(serverHost.c_str(), serverPort);
+        if (sock != -1) return sock;
+    }
+    return -1;
 }
 
 
@@ -225,6 +238,31 @@ void relayOneClient(ClientInfo& c)
     // 5. Server -> client: repeat recv() from serverSock and sendAll() to clientSock.
     //    Stop when recv() returns 0 (the server sent its whole reply and closed) or fails.
     // 6. Close both sockets.
+        int serverSock = connectToServerWithWakeup();
+    if (serverSock == -1){
+        sendError(c.sock, "Backend Server Failed to Start");
+        closesocket(c.sock);
+        return;
+    }
+
+    char buffer[IO_BUFFER_SIZE];
+
+    while (true){
+        int byte = recv(c.sock, buffer, IO_BUFFER_SIZE, 0);
+        if (byte <= 0) break;
+        sendAll(serverSock, buffer, byte);
+    }
+
+    shutdown(serverSock, 1);
+
+    while (true){
+        int bytes = recv(serverSock, buffer, IO_BUFFER_SIZE, 0);
+        if (bytes <= 0) break;
+        sendAll(c.sock, buffer, bytes);
+    }
+
+    closesocket(serverSock);
+    closesocket(c.sock);
 }
 
 
