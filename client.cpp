@@ -166,12 +166,17 @@ Snapshot* readSnapshotAt(TdbgReader& r, int32_t step)
 
 void initSession(DebugSession& s)
 {
-
+    s.active_flag = 0;
+    s.currentStep = 0;
 }
 void closeSession(DebugSession& s)
 {
     // If active, call closeTdbg(s.reader). Then set active = false.
     // Called when the user types quit and when the input ends.
+    if (s.active_flag != 0) {
+        closeTdbg(s.reader);
+        s.active_flag = 0;
+    }
 }
 
 // =============================================================================================
